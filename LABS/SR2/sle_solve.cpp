@@ -4,6 +4,9 @@
 #include <string>
 
 #include <chrono>
+#include <omp.h>
+
+#include "D:\\Program Files\\oneAPI\\advisor\\latest\\include\\advisor-annotate.h"
 
 typedef double type;
 
