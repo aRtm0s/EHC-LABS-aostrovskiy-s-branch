@@ -38,14 +38,20 @@ public:
 
     void forward()
     {
+        ANNOTATE_SITE_BEGIN(forward);
         for (int i = 0; i < m; ++i)
         {
             type lead_elem = coefs[i][i];
+
+            ANNOTATE_TASK_BEGIN(normalize_row);
             for (int j = 0; j < n; ++j)
             {
                 coefs[i][j] = coefs[i][j] / lead_elem;
             }
             free_term[i] = free_term[i] / lead_elem;
+            ANNOTATE_TASK_END();
+
+            ANNOTATE_TASK_BEGIN(eliminate_rows);
             for (int j = i + 1; j < m; ++j)
             {
                 type coef = coefs[j][i] / coefs[i][i];
@@ -55,18 +61,26 @@ public:
                 }
                 free_term[j] = free_term[j] - free_term[i] * coef;
             }
+            ANNOTATE_TASK_END();
         }
+        ANNOTATE_SITE_END();
     }
     void backward()
     {
+        ANNOTATE_SITE_BEGIN(backward);
         for (int i = m - 1; i >= 0; --i)
         {
             type lead_elem = coefs[i][i];
+
+            ANNOTATE_TASK_BEGIN(normalize_row_back);
             for (int j = n - 1; j >= 0; --j)
             {
                 coefs[i][j] = coefs[i][j] / lead_elem;
             }
             free_term[i] = free_term[i] / lead_elem;
+            ANNOTATE_TASK_END();
+
+            ANNOTATE_TASK_BEGIN(eliminate_rows_back);
             for (int j = i - 1; j >= 0; --j)
             {
                 type coef = coefs[j][i] / coefs[i][i];
@@ -76,7 +90,9 @@ public:
                 }
                 free_term[j] = free_term[j] - free_term[i] * coef;
             }
+            ANNOTATE_TASK_END();
         }
+        ANNOTATE_SITE_END();
     }
 
     void get_answer()
