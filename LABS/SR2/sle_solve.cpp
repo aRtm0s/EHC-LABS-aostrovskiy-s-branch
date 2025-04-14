@@ -37,7 +37,7 @@ public:
     double solve() {
         std::chrono::time_point start = std::chrono::high_resolution_clock::now();
         
-        omp_set_num_threads(omp_get_max_threads());
+        omp_set_num_threads(6);
         forward();
         backward();
         get_answer();
@@ -56,7 +56,7 @@ public:
             }
             free_term[i] /= pivot;
 
-            #pragma omp for schedule(dynamic, 12) nowait
+            #pragma omp parallel for schedule(dynamic) //nowait
             for (int j = i + 1; j < m; ++j) {
                 type factor = matrix[j*n + i];
                 #pragma omp simd aligned(matrix:64)
@@ -78,7 +78,7 @@ public:
             }
             free_term[i] /= pivot;
 
-            #pragma omp for schedule(dynamic, 12) nowait
+            #pragma omp parallel for schedule(dynamic) //nowait
             for (int j = i - 1; j >= 0; --j) {
                 type factor = matrix[j*n + i];
                 #pragma omp simd aligned(matrix:64)
@@ -143,7 +143,7 @@ bool performance_run(int task_size) {
 
     Gauss method(task_size, task_size, coefs, free_term);
     double seq_time = method.solve();
-    std::cout << "Elapsed time: " << seq_time << " seconds\n";
+    std::cout << "Elapsed sequential Gaussian time: " << seq_time << " seconds\n";
 
     for (int i = 0; i < task_size; ++i) {
         delete[] coefs[i];
