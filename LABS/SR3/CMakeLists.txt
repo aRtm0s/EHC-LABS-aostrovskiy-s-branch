@@ -3,10 +3,9 @@ file(GLOB SOURCE_V0 *.cpp)
 
 project(nqeens LANGUAGES CXX)
 
-# add_executable(nqeens ${SOURCE_V0})
-add_executable(nqeens nqueens.cpp)
-# add_executable(nqeens nqueens_vector.cpp)
-# add_executable(nqeens nqueens_opt.cpp)
+# add_executable(nqeens nqueens.cpp)
+add_executable(nqeens nqueens_opt.cpp)
+
 set_property(TARGET nqeens PROPERTY CXX_STANDARD 17)
 target_compile_options(nqeens PRIVATE /Qopt-report:5 /QxCORE-AVX2 /ZI /DEBUG /Qipo- /Qopenmp /O3)
 
