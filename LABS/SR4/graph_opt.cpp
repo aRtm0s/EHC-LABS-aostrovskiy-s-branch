@@ -4,6 +4,8 @@
 #include <chrono>
 #include <string>
 
+#include <omp.h>
+
 #define MAX_DIST 10
 
 class Graph {
@@ -67,19 +69,60 @@ public:
     Graph get_shortest_paths(void)
     {
         Graph res_graph(*this);
-        for (int iter = 0; iter < m_num_verts - 2; ++iter) {
+
+        #pragma omp parallel
+        {   
+            uint64_t** local_matr = new uint64_t*[m_num_verts];
             for(size_t i = 0; i < m_num_verts; ++i) {
+                local_matr[i] = new uint64_t[m_num_verts];
+                #pragma omp simd // Векторизация копирования
                 for(size_t j = 0; j < m_num_verts; ++j) {
-                    for(size_t k = 0; k < m_num_verts; ++k) {
-                        uint64_t tmp_dist = res_graph.m_adj_matr[i][k] + m_adj_matr[k][j];
-                        if (res_graph.m_adj_matr[i][j] > tmp_dist) {
-                            res_graph.m_adj_matr[i][j] = tmp_dist;
+                    local_matr[i][j] = res_graph.m_adj_matr[i][j];
+                }
+            }
+            
+
+            for (int iter = 0; iter < m_num_verts - 2; ++iter) {
+
+                #pragma omp for schedule(static) collapse(2)
+                for(size_t i = 0; i < m_num_verts; ++i) {
+                    for(size_t j = 0; j < m_num_verts; ++j) {
+                        uint64_t current_dist = local_matr[i][j];
+
+                        #pragma omp simd reduction(min:current_dist)
+                        for(size_t k = 0; k < m_num_verts; ++k) {
+                            uint64_t tmp_dist = res_graph.m_adj_matr[i][k] + m_adj_matr[k][j];
+                            if(current_dist > tmp_dist) {
+                                current_dist = tmp_dist;
+                            }
                         }
+
+                        local_matr[i][j] = current_dist;
                     }
                 }
             }
+
+            #pragma omp single
+            {
+                for(size_t i = 0; i < m_num_verts; ++i) {
+                    #pragma omp simd
+                    for(size_t j = 0; j < m_num_verts; ++j) {
+                        res_graph.m_adj_matr[i][j] = local_matr[i][j];
+                    }
+                }
+            }
+
+            for(size_t i = 0; i < m_num_verts; ++i) {
+                delete[] local_matr[i];
+            }
+            delete[] local_matr;
+        } //pragma omp parallel
+
+        #pragma omp parallel for
+        for(size_t i = 0; i < m_num_verts; ++i) {
+            res_graph.m_adj_matr[i][i] = MAX_DIST;
         }
-        for(size_t i = 0; i < m_num_verts; ++i) { res_graph.m_adj_matr[i][i] = MAX_DIST; }
+        
         return res_graph;
     }
 

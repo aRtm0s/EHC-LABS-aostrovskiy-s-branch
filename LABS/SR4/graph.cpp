@@ -4,6 +4,8 @@
 #include <chrono>
 #include <string>
 
+#include "D:\\Program Files\\oneAPI\\advisor\\latest\\include\\advisor-annotate.h"
+
 #define MAX_DIST 10
 
 class Graph {
@@ -67,19 +69,35 @@ public:
     Graph get_shortest_paths(void)
     {
         Graph res_graph(*this);
+        ANNOTATE_SITE_BEGIN(main_loop);
         for (int iter = 0; iter < m_num_verts - 2; ++iter) {
+            ANNOTATE_ITERATION_TASK(iteration);
+
+            ANNOTATE_SITE_BEGIN(inner_loop);
             for(size_t i = 0; i < m_num_verts; ++i) {
                 for(size_t j = 0; j < m_num_verts; ++j) {
+
+                    ANNOTATE_TASK_BEGIN(process_vertex_pair);
                     for(size_t k = 0; k < m_num_verts; ++k) {
                         uint64_t tmp_dist = res_graph.m_adj_matr[i][k] + m_adj_matr[k][j];
                         if (res_graph.m_adj_matr[i][j] > tmp_dist) {
                             res_graph.m_adj_matr[i][j] = tmp_dist;
                         }
                     }
+                    ANNOTATE_TASK_END(); // process vertex pair
                 }
             }
+            ANNOTATE_SITE_END(); // inner_loop
         }
-        for(size_t i = 0; i < m_num_verts; ++i) { res_graph.m_adj_matr[i][i] = MAX_DIST; }
+        ANNOTATE_SITE_END(); // main_loop
+
+        ANNOTATE_SITE_BEGIN(post_process);
+        for(size_t i = 0; i < m_num_verts; ++i) {
+            ANNOTATE_ITERATION_TASK(post_process_iter);
+            res_graph.m_adj_matr[i][i] = MAX_DIST;
+        }
+        ANNOTATE_SITE_END(); // post_process
+
         return res_graph;
     }
 

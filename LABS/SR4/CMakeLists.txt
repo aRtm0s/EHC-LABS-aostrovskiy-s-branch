@@ -1,7 +1,8 @@
 
 # file(GLOB SOURCE_V0 *.cpp)
-file(GLOB SOURCE_V0 graph.cpp)
+# file(GLOB SOURCE_V0 graph.cpp)
 # file(GLOB SOURCE_V0 graph_opt.cpp)
+file(GLOB SOURCE_V0 graph_opt_seq.cpp)
 
 project(graph LANGUAGES CXX)
 
