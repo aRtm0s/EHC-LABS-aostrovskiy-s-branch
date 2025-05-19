@@ -1,3 +1,5 @@
+#include "D:\\Program Files\\oneAPI\\advisor\\latest\\include\\advisor-annotate.h"
+
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -48,18 +50,23 @@ public:
     Graph get_shortest_paths() const {
         const size_t n = m_num_verts;
         Graph res(*this);
-        
-            for(size_t k = 0; k < n; ++k) {
-                for(size_t i = 0; i < n; ++i) {
-                    const uint64_t ik = res.m_adj_matr[i*n + k];
-                    for(size_t j = 0; j < n; ++j) {
-                        uint64_t sum = ik + m_adj_matr[k*n + j];
-                        if(res.m_adj_matr[i*n + j] > sum) {
-                            res.m_adj_matr[i*n + j] = sum;
-                        }
+
+        ANNOTATE_SITE_BEGIN(main_loop);
+        for(size_t k = 0; k < n; ++k) {
+
+            ANNOTATE_TASK_BEGIN(iter);
+            for(size_t i = 0; i < n; ++i) {
+                const uint64_t ik = res.m_adj_matr[i*n + k];
+                for(size_t j = 0; j < n; ++j) {
+                    uint64_t sum = ik + m_adj_matr[k*n + j];
+                    if(res.m_adj_matr[i*n + j] > sum) {
+                        res.m_adj_matr[i*n + j] = sum;
                     }
                 }
             }
+            ANNOTATE_TASK_END();
+        }
+        ANNOTATE_SITE_END();
 
         return res;
     }
