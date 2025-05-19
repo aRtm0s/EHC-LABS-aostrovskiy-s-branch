@@ -3,6 +3,8 @@
 #include <vector>
 #include <chrono>
 #include <string>
+#include <cassert>
+#include <algorithm>
 
 #include <omp.h>
 
@@ -10,131 +12,88 @@
 
 class Graph {
 private:
-    uint64_t** m_adj_matr;
+    std::vector<uint64_t> m_adj_matr;
     size_t m_num_verts;
+
 public:
-    Graph(const Graph& other) : m_num_verts(other.m_num_verts)
-    {
-        m_adj_matr = new uint64_t*[m_num_verts];
-        for (size_t i = 0; i < m_num_verts; ++i) {
-            m_adj_matr[i] = new uint64_t[m_num_verts];
-            for (size_t j = 0; j < m_num_verts; ++j) {
-                m_adj_matr[i][j] = other.m_adj_matr[i][j];
-            }
-        }
-    }
-    Graph(size_t num_verts) : m_num_verts(num_verts)
-    {
-        m_adj_matr = new uint64_t*[m_num_verts];
-        for (size_t i = 0; i < m_num_verts; ++i) {
-            m_adj_matr[i] = new uint64_t[m_num_verts];
-            for (size_t j = 0; j < m_num_verts; ++j) {
-                m_adj_matr[i][j] = MAX_DIST;
-            }
-        }
-    }
+    Graph(const Graph& other) 
+        : m_num_verts(other.m_num_verts),
+          m_adj_matr(other.m_adj_matr) 
+    {}
 
-    Graph() = default;
-
-    ~Graph()
+    Graph(size_t num_verts) 
+        : m_num_verts(num_verts),
+          m_adj_matr(num_verts * num_verts, MAX_DIST)
     {
         for(size_t i = 0; i < m_num_verts; ++i) {
-            delete[] m_adj_matr[i];
+            m_adj_matr[i*m_num_verts + i] = 0;
         }
-        delete[] m_adj_matr;
     }
 
-    void add_edge(size_t src, size_t dst, int dist)
-    {
-        if (src < 0 || src >= m_num_verts ||
-            dst < 0 || dst >= m_num_verts ||
-            dist < 0 || dist >= MAX_DIST) return;
-        
-        m_adj_matr[src][dst] = dist;
+    void add_edge(size_t src, size_t dst, uint64_t dist) {
+        assert(src < m_num_verts && dst < m_num_verts);
+        m_adj_matr[src*m_num_verts + dst] = dist;
     }
 
-    void print_adj_matr(void)
-    {
-        std::cout << std::endl;
-        for (size_t i = 0; i < m_num_verts; ++i) {
-            for (size_t j = 0; j < m_num_verts; ++j) {
-                if ((m_adj_matr[i][j] < MAX_DIST))
-                    std::cout << m_adj_matr[i][j] << ' ';
-                else std::cout << '-' << ' ';
+    void print_adj_matr() const {
+        std::cout << "\n";
+        for(size_t i = 0; i < m_num_verts; ++i) {
+            for(size_t j = 0; j < m_num_verts; ++j) {
+                uint64_t val = m_adj_matr[i*m_num_verts + j];
+                if(val < MAX_DIST) std::cout << val << ' ';
+                else std::cout << "- ";
             }
-            std::cout << std::endl;
+            std::cout << "\n";
         }
     }
 
-    Graph get_shortest_paths(void)
-    {
-        Graph res_graph(*this);
+    Graph get_shortest_paths() const {
+        const size_t n = m_num_verts;
+        Graph res(*this);
+        
+        const std::vector<uint64_t> prev_matr = res.m_adj_matr;
 
         #pragma omp parallel
-        {   
-            uint64_t** local_matr = new uint64_t*[m_num_verts];
-            for(size_t i = 0; i < m_num_verts; ++i) {
-                local_matr[i] = new uint64_t[m_num_verts];
-                #pragma omp simd // Векторизация копирования
-                for(size_t j = 0; j < m_num_verts; ++j) {
-                    local_matr[i][j] = res_graph.m_adj_matr[i][j];
-                }
-            }
-            
+        {
+            std::vector<uint64_t> local_matr = prev_matr;
 
-            for (int iter = 0; iter < m_num_verts - 2; ++iter) {
-
-                #pragma omp for schedule(static) collapse(2)
-                for(size_t i = 0; i < m_num_verts; ++i) {
-                    for(size_t j = 0; j < m_num_verts; ++j) {
-                        uint64_t current_dist = local_matr[i][j];
-
-                        #pragma omp simd reduction(min:current_dist)
-                        for(size_t k = 0; k < m_num_verts; ++k) {
-                            uint64_t tmp_dist = res_graph.m_adj_matr[i][k] + m_adj_matr[k][j];
-                            if(current_dist > tmp_dist) {
-                                current_dist = tmp_dist;
-                            }
+            #pragma omp for schedule(dynamic) nowait
+            for(size_t k = 0; k < n; ++k) {
+                for(size_t i = 0; i < n; ++i) {
+                    const uint64_t ik = local_matr[i*n + k];
+                    for(size_t j = 0; j < n; ++j) {
+                        uint64_t sum = ik + prev_matr[k*n + j];
+                        if(local_matr[i*n + j] > sum) {
+                            local_matr[i*n + j] = sum;
                         }
-
-                        local_matr[i][j] = current_dist;
                     }
                 }
             }
 
-            #pragma omp single
+            #pragma omp critical
             {
-                for(size_t i = 0; i < m_num_verts; ++i) {
-                    #pragma omp simd
-                    for(size_t j = 0; j < m_num_verts; ++j) {
-                        res_graph.m_adj_matr[i][j] = local_matr[i][j];
+                for(size_t i = 0; i < n; ++i) {
+                    for(size_t j = 0; j < n; ++j) {
+                        if(res.m_adj_matr[i*n + j] > local_matr[i*n + j]) {
+                            res.m_adj_matr[i*n + j] = local_matr[i*n + j];
+                        }
                     }
                 }
             }
-
-            for(size_t i = 0; i < m_num_verts; ++i) {
-                delete[] local_matr[i];
-            }
-            delete[] local_matr;
-        } //pragma omp parallel
-
-        #pragma omp parallel for
-        for(size_t i = 0; i < m_num_verts; ++i) {
-            res_graph.m_adj_matr[i][i] = MAX_DIST;
         }
-        
-        return res_graph;
+
+        return res;
     }
 
-    size_t get_graph_size() { return this->m_num_verts; }
+    size_t get_graph_size() const { return m_num_verts; }
 };
 
 void fill_rand_graph(Graph& graph) {
     size_t size = graph.get_graph_size();
-    for (size_t i = 0; i < size; ++i) {
-        for (size_t j = 0; j < size; ++j) {
-            if (i != j) {
-                graph.add_edge(i, j, (rand() % (MAX_DIST - 1)) + 1);
+    for(size_t i = 0; i < size; ++i) {
+        for(size_t j = 0; j < size; ++j) {
+            if(i != j) {
+                graph.add_edge(i, j, (rand() % (MAX_DIST-1)) + 1);
             }
         }
     }

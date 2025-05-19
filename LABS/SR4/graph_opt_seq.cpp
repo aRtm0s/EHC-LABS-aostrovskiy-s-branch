@@ -7,7 +7,6 @@
 #include <algorithm>
 
 #define MAX_DIST 10
-#define BLOCK_SIZE 64
 
 class Graph {
 private:
@@ -47,26 +46,21 @@ public:
     }
 
     Graph get_shortest_paths() const {
-        Graph res(*this);
         const size_t n = m_num_verts;
+        Graph res(*this);
         
-        for(size_t kk = 0; kk < n; kk += BLOCK_SIZE) {
-            const size_t k_end = std::min(kk + BLOCK_SIZE, n);
-            
-            for(size_t k = kk; k < k_end; ++k) {
+            for(size_t k = 0; k < n; ++k) {
                 for(size_t i = 0; i < n; ++i) {
                     const uint64_t ik = res.m_adj_matr[i*n + k];
-                    
                     for(size_t j = 0; j < n; ++j) {
-                        const uint64_t sum = ik + res.m_adj_matr[k*n + j];
+                        uint64_t sum = ik + m_adj_matr[k*n + j];
                         if(res.m_adj_matr[i*n + j] > sum) {
                             res.m_adj_matr[i*n + j] = sum;
                         }
                     }
                 }
             }
-        }
-        
+
         return res;
     }
 
